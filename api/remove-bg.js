@@ -1,13 +1,16 @@
+// VERSION: 3
 const sharp = require('sharp');
 
 module.exports = async (req, res) => {
   if (req.method !== 'POST') {
-    return new Response('POST only', { status: 405 });
+    return res.status(405).json({ error: 'POST only' });
   }
 
   try {
     const { image_url, tolerance: tol } = req.body;
     const tolerance = tol || 40;
+
+    console.log('Running version 3, tolerance:', tolerance);
 
     if (!image_url) return res.status(400).json({ error: 'Missing image_url' });
 
@@ -38,6 +41,8 @@ module.exports = async (req, res) => {
     const bgR = Math.round(rTotal / 4);
     const bgG = Math.round(gTotal / 4);
     const bgB = Math.round(bTotal / 4);
+
+    console.log('Background color sampled:', bgR, bgG, bgB);
 
     for (let i = 0; i < data.length; i += channels) {
       if (data[i + 3] === 0) continue;
@@ -74,6 +79,7 @@ module.exports = async (req, res) => {
     }
 
     return res.status(200).json({
+      version: 3,
       success: true,
       url: cloudinaryData.secure_url,
       public_id: cloudinaryData.public_id
