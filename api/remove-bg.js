@@ -2,7 +2,7 @@ const sharp = require('sharp');
 
 module.exports = async (req, res) => {
   if (req.method !== 'POST') {
-    return res.status(405).json({ error: 'POST only' });
+    return new Response('POST only', { status: 405 });
   }
 
   try {
@@ -22,7 +22,6 @@ module.exports = async (req, res) => {
 
     const { width, height, channels } = info;
 
-    // Sample corners to determine background color
     const corners = [
       [0, 0], [width - 1, 0],
       [0, height - 1], [width - 1, height - 1]
@@ -40,9 +39,8 @@ module.exports = async (req, res) => {
     const bgG = Math.round(gTotal / 4);
     const bgB = Math.round(bTotal / 4);
 
-    // Single global pass — remove ALL pixels matching background color
     for (let i = 0; i < data.length; i += channels) {
-      if (data[i + 3] === 0) continue; // already transparent
+      if (data[i + 3] === 0) continue;
       const r = data[i], g = data[i + 1], b = data[i + 2];
       const diff = Math.sqrt(
         Math.pow(r - bgR, 2) +
@@ -54,12 +52,10 @@ module.exports = async (req, res) => {
       }
     }
 
-    // Convert back to PNG
     const outputBuffer = await sharp(data, {
       raw: { width, height, channels }
     }).png().toBuffer();
 
-    // Upload to Cloudinary
     const cloudinaryFormData = new FormData();
     const blob = new Blob([outputBuffer], { type: 'image/png' });
     cloudinaryFormData.append('file', blob, 'clean.png');
@@ -68,10 +64,7 @@ module.exports = async (req, res) => {
 
     const cloudinaryResponse = await fetch(
       `https://api.cloudinary.com/v1_1/${process.env.CLOUDINARY_CLOUD_NAME}/image/upload`,
-      {
-        method: 'POST',
-        body: cloudinaryFormData
-      }
+      { method: 'POST', body: cloudinaryFormData }
     );
 
     const cloudinaryData = await cloudinaryResponse.json();
@@ -87,6 +80,6 @@ module.exports = async (req, res) => {
     });
 
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    return res.status(500).json({ error: err.message });
   }
 };
