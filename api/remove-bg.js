@@ -8,7 +8,7 @@ module.exports = async (req, res) => {
   try {
     const { image_url, tolerance: tol } = req.body;
     const tolerance = tol || 25;
-    
+
     if (!image_url) return res.status(400).json({ error: 'Missing image_url' });
 
     // Fetch the image
@@ -61,13 +61,37 @@ module.exports = async (req, res) => {
       }
     }
 
-    // Convert back to PNG
+    // Convert back to PNG buffer
     const outputBuffer = await sharp(data, {
       raw: { width, height, channels }
     }).png().toBuffer();
 
-    res.setHeader('Content-Type', 'image/png');
-    res.send(outputBuffer);
+    // Upload to Cloudinary
+    const cloudinaryFormData = new FormData();
+    const blob = new Blob([outputBuffer], { type: 'image/png' });
+    cloudinaryFormData.append('file', blob, 'clean.png');
+    cloudinaryFormData.append('upload_preset', 'tshirt_upload');
+    cloudinaryFormData.append('api_key', process.env.CLOUDINARY_API_KEY);
+
+    const cloudinaryResponse = await fetch(
+      `https://api.cloudinary.com/v1_1/${process.env.CLOUDINARY_CLOUD_NAME}/image/upload`,
+      {
+        method: 'POST',
+        body: cloudinaryFormData
+      }
+    );
+
+    const cloudinaryData = await cloudinaryResponse.json();
+
+    if (cloudinaryData.error) {
+      return res.status(500).json({ error: cloudinaryData.error.message });
+    }
+
+    return res.status(200).json({
+      success: true,
+      url: cloudinaryData.secure_url,
+      public_id: cloudinaryData.public_id
+    });
 
   } catch (err) {
     res.status(500).json({ error: err.message });
